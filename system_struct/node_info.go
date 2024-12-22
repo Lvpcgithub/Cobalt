@@ -46,12 +46,24 @@ type LoadInfo struct {
 	Load15 float64 `json:"load15"`
 }
 
-type SystemInfo struct {
-	IP          string      `json:"ip"`
+type DeviceInfo struct {
+	DeviceName  string      `json:"device_name"`
 	CPUInfo     CPUInfo     `json:"cpu_info"`
 	MemoryInfo  MemoryInfo  `json:"memory_info"`
 	DiskInfo    DiskInfo    `json:"disk_info"`
 	NetworkInfo NetworkInfo `json:"network_info"`
 	HostInfo    HostInfo    `json:"host_info"`
 	LoadInfo    LoadInfo    `json:"load_info"`
+}
+type IpList struct {
+	DeviceName  string `json:"device_name" db:"device_name"` // 外键引用设备表
+	IpAddress   string `json:"ip_address" db:"ip_address"`   // IP地址（支持IPv4和IPv6）
+	IpType      string `json:"ip_type" db:"ip_type"`         // IP类型 ('IPv4' 或 'IPv6')
+	Description string `json:"description" db:"description"` // IP地址的备注信息
+}
+
+type CPUStats struct {
+	DeviceName string  `json:"device_name"` // 设备名
+	Mean       float64 `json:"mean"`        // CPU 使用率的均值
+	Variance   float64 `json:"variance"`    // CPU 使用率的方差
 }

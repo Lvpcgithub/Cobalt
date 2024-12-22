@@ -8,10 +8,10 @@ import (
 )
 
 // 插入节点信息
-func InsertSystemInfo(db *sql.DB, info system_struct.SystemInfo) error {
+func InsertDeviceInfo(db *sql.DB, info system_struct.DeviceInfo) error {
 	query := `
-		INSERT INTO system_info (
-			ip, 
+		INSERT INTO device_info (
+			device_name, 
 			cpu_cores, cpu_model_name, cpu_mhz, cpu_cache_size, cpu_usage,
 			memory_total, memory_available, memory_used, memory_used_percent,
 			disk_device, disk_total, disk_free, disk_used, disk_used_percent,
@@ -25,7 +25,7 @@ func InsertSystemInfo(db *sql.DB, info system_struct.SystemInfo) error {
 	fmt.Printf("Timestamp: %s\n", timestamp)
 
 	_, err := db.Exec(query,
-		info.IP,
+		info.DeviceName,
 		info.CPUInfo.Cores, info.CPUInfo.ModelName, info.CPUInfo.Mhz, info.CPUInfo.CacheSize, info.CPUInfo.Usage, //5
 		info.MemoryInfo.Total, info.MemoryInfo.Available, info.MemoryInfo.Used, info.MemoryInfo.UsedPercent, //4
 		info.DiskInfo.Device, info.DiskInfo.Total, info.DiskInfo.Free, info.DiskInfo.Used, info.DiskInfo.UsedPercent, //5
@@ -37,28 +37,34 @@ func InsertSystemInfo(db *sql.DB, info system_struct.SystemInfo) error {
 	return err
 }
 
-// 插入链路信息
-func InsertLinkInfo(db *sql.DB, sourceIP string, destinationIP string, delay float32, timestamp string) error {
+func InsertIpInfo(db *sql.DB, info system_struct.IpList) error {
 	query := `
-		INSERT INTO link_info (SourceIP, DestinationIP, Delay, Timestamp)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO ip_list (device_name, ip_address, ip_type, description)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	_, err := db.Exec(query, sourceIP, destinationIP, delay, timestamp)
+
+	_, err := db.Exec(query, info.DeviceName, info.IpAddress, info.IpType, info.Description)
 	return err
 }
 
-// 查询ip
-func QueryIp(db *sql.DB) (*sql.Rows, error) {
-	rows, err := db.Query("SELECT DISTINCT ip FROM system_info")
+// 插入链路信息
+func InsertLinks(db *sql.DB, link system_struct.Links) error {
+	// 插入 SQL 语句
+	query := `
+		INSERT INTO links (
+			device_n1, device_n2, link_latency, 
+			n2_cpu_mean, n2_cpu_variance, 
+			virtual_queue_cpu_mean, virtual_queue_cpu_variance
+		) VALUES (?, ?, ?, ?, ?, ?, ?);
+	`
+
+	// 执行插入操作
+	_, err := db.Exec(query, link.DeviceN1, link.DeviceN2, link.LinkLatency,
+		link.N2CPUMean, link.N2CPUVariance, link.VirtualQueueCPUMean, link.VirtualQueueCPUVariance)
 	if err != nil {
-		fmt.Println("Error executing query:", err)
-		return nil, err
+		return fmt.Errorf("failed to insert link data: %v", err)
 	}
-	return rows, err
-}
 
-// 测试方法
-func IdInsert(db *sql.DB, id int, name string) error {
-	_, err := db.Exec("insert into test_table(id,name) values(?,?)", id, name)
-	return err
+	// 成功插入后返回 nil
+	return nil
 }

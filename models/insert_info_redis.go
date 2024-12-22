@@ -1,8 +1,8 @@
 package models
 
 import (
-	"Cobalt/dao"
 	"Cobalt/system_struct"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
@@ -28,8 +28,14 @@ func CollectAndStoreData(conn redis.Conn, probeResult system_struct.ProbeResult)
 }
 
 // RetrieveAndProcessData 从Redis中取出数据并进行计算 ****60s
-func RetrieveAndProcessData(conn redis.Conn, ip1 string, ip2 string) {
-	var totalDelay float32
+func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string) {
+	device_name1, err := GetDeviceNameByIP(db, ip1)
+	device_name2, err := GetDeviceNameByIP(db, ip2)
+	if err != nil {
+		log.Printf("Failed to get device name for %s->%s: %v", ip1, ip2, err)
+		return
+	}
+	var totalDelay float64
 	totalDelay = 0
 	key := fmt.Sprintf("probe:{%s:%s}", ip1, ip2)
 	fmt.Println("key:", key)
@@ -47,21 +53,37 @@ func RetrieveAndProcessData(conn redis.Conn, ip1 string, ip2 string) {
 		}
 		totalDelay += probeResult.Delay
 		fmt.Println("计算数据,例如延迟：", probeResult.Delay)
-		// 进行必要的计算, 比如时延分析或其他
-		//ProcessAndStoreToMySQL(probeResult)
 	}
-	avgDelay := totalDelay / float32(len(values))
+	avgDelay := totalDelay / float64(len(values))
 	fmt.Println(avgDelay)
-	StoreToMySQL(ip1, ip2, avgDelay, time.Now().Format("2006-01-02 15:04:05"))
-}
-
-// 数据计算接收并存储到mysql
-func StoreToMySQL(sourceIP string, destinationIP string, delay float32, timestamp string) {
-	fmt.Println(sourceIP, destinationIP, delay, timestamp)
-	db := dao.ConnectToDB()
-	err := InsertLinkInfo(db, sourceIP, destinationIP, delay, timestamp)
+	stat, err := GetLatestCPUUsage(db, device_name2)
 	if err != nil {
+		log.Printf("Failed to get latest CPU usage for %s->%s: %v", ip1, ip2, err)
 		return
 	}
 
+	StoreToMySQL(db, device_name1, device_name2, avgDelay, stat.Mean, stat.Variance, time.Now().Format("2006-01-02 15:04:05"))
+}
+
+// 数据计算接收并存储到mysql
+func StoreToMySQL(db *sql.DB, n1, n2 string, latency, mean, variance float64, timestamp string) {
+	// 创建 Link 结构体实例，准备插入的数据
+	link := system_struct.Links{
+		DeviceN1:                n1,
+		DeviceN2:                n2,
+		LinkLatency:             latency,
+		N2CPUMean:               mean,
+		N2CPUVariance:           variance,
+		VirtualQueueCPUMean:     0, // 假设均值作为虚拟队列的 CPU 均值
+		VirtualQueueCPUVariance: 0, // 假设方差作为虚拟队列的 CPU 方差
+	}
+
+	// 调用 InsertLink 插入数据
+	err := InsertLinks(db, link)
+	if err != nil {
+		fmt.Printf("Failed to insert link data: %v\n", err)
+		return
+	}
+
+	fmt.Println("Link data inserted successfully!")
 }
