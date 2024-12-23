@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sort"
 )
 
 // 查询设备名称
@@ -16,6 +17,7 @@ func QueryDeviceName(db *sql.DB) (*sql.Rows, error) {
 	}
 	return rows, err
 }
+
 func GetIpByDevice(db *sql.DB) (map[string]string, error) {
 	query := `
 		SELECT device_name, MIN(ip_address) AS ip_address
@@ -45,7 +47,6 @@ func GetIpByDevice(db *sql.DB) (map[string]string, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
@@ -135,4 +136,71 @@ func GetDeviceNameByIP(db *sql.DB, ipAddress string) (string, error) {
 
 	// 返回查询到的设备名称
 	return deviceName, nil
+}
+
+func GetCpuAvgAndVariance(db *sql.DB, thresholdCpuMean float64, thresholdCpuVar float64) (aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars []float64, err error) {
+	// 查询数据库，获取每个设备的最近 10 条记录的 CPU 使用率均值和方差
+	query := `
+	WITH RankedDevices AS (
+		SELECT 
+			device_name, 
+			cpu_usage,
+			timestamp,
+			ROW_NUMBER() OVER (PARTITION BY device_name ORDER BY timestamp DESC) AS rn
+		FROM device_info
+	)
+	SELECT 
+		device_name,
+		AVG(cpu_usage) AS avg_cpu_usage,
+		VARIANCE(cpu_usage) AS variance_cpu_usage
+	FROM RankedDevices
+	WHERE rn <= 10
+	GROUP BY device_name;
+	`
+
+	// 执行查询
+	rows, queryErr := db.Query(query)
+	if queryErr != nil {
+		return nil, nil, nil, nil, queryErr
+	}
+	defer rows.Close()
+
+	// 遍历查询结果
+	for rows.Next() {
+		var deviceName string
+		var avgCpuUsage float64
+		var varianceCpuUsage float64
+
+		// 将每行查询结果扫描到变量
+		scanErr := rows.Scan(&deviceName, &avgCpuUsage, &varianceCpuUsage)
+		if scanErr != nil {
+			return nil, nil, nil, nil, scanErr
+		}
+
+		// 分类到相应的数组
+		if avgCpuUsage > thresholdCpuMean {
+			aboveCpuMeans = append(aboveCpuMeans, avgCpuUsage)
+		} else {
+			belowCpuMeans = append(belowCpuMeans, avgCpuUsage)
+		}
+
+		if varianceCpuUsage > thresholdCpuVar {
+			aboveCpuVars = append(aboveCpuVars, varianceCpuUsage)
+		} else {
+			belowCpuVars = append(belowCpuVars, varianceCpuUsage)
+		}
+	}
+
+	// 检查查询是否有错误
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return nil, nil, nil, nil, rowsErr
+	}
+
+	// 对每个数组进行升序排序
+	sort.Float64s(aboveCpuMeans)
+	sort.Float64s(belowCpuMeans)
+	sort.Float64s(aboveCpuVars)
+	sort.Float64s(belowCpuVars)
+
+	return aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars, nil
 }

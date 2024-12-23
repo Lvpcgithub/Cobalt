@@ -67,3 +67,11 @@ type CPUStats struct {
 	Mean       float64 `json:"mean"`        // CPU 使用率的均值
 	Variance   float64 `json:"variance"`    // CPU 使用率的方差
 }
+
+// 定义网络拓扑状态结构
+type NetState struct {
+	AboveThresholdCpuMeans []float64 // 所有超过阈值节点CPU均值，升序排序
+	BelowThresholdCpuMeans []float64 // 所有未超过阈值节点CPU均值，升序排序
+	AboveThresholdCpuVars  []float64 // 所有超过阈值节点CPU方差，升序排序
+	BelowThresholdCpuVars  []float64 // 所有未超过阈值节点CPU方差，升序排序
+}
