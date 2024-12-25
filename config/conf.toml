@@ -1,0 +1,14 @@
+#协程池协程数量
+PoolNum = 10
+#下发一次探测任务时长
+DetectCycle = 30
+#检测节点周期
+DetectNewNode = 300
+#redis计算周期
+CalculateCycle = 60
+#k条路径
+K = 6
+#惩罚系数
+Theta = 0.1
+#路径跳数限制
+skip = 3

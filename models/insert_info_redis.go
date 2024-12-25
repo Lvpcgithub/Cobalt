@@ -38,7 +38,7 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 	key := fmt.Sprintf("probe:{%s:%s}", ip1, ip2)
 	fmt.Println("key:", key)
 	// 获取最新10数据
-	values, err := redis.Values(conn.Do("LRANGE", key, -10, -1))
+	values, err := redis.Values(conn.Do("LRANGE", key, -10, -1)) // 看一下逻辑
 	if err != nil {
 		log.Fatalf("Failed to retrieve data from Redis: %v", err)
 	}
@@ -52,7 +52,7 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 		totalDelay += probeResult.Delay
 		//fmt.Println("计算数据,例如延迟：", probeResult.Delay)
 	}
-	avgDelay := totalDelay / float64(len(values))
+	avgDelay := totalDelay / float64(len(values)) //除数是否是0
 	//fmt.Println(avgDelay)
 	stat, err := GetLatestCPUUsage(db, device_name2)
 	if err != nil {

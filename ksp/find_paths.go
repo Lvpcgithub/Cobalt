@@ -1,6 +1,7 @@
 package test_info
 
 import (
+	"Cobalt/config"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -66,6 +67,7 @@ func jsonToMatrix(links []LinkInfo) ([][]int, map[string]int) {
 }
 
 func PrintInfo(s string) {
+	c := config.UseToml()
 	url := "http://127.0.0.1:8080/" + s
 	links, err := fetchLinkInfo(url)
 	if err != nil {
@@ -91,12 +93,8 @@ func PrintInfo(s string) {
 	// 定义源和目标节点以及路径数量 k
 	source := nodeMap["192.168.32.1"]
 	target := nodeMap["192.168.32.5"]
-	k := 6
-	// 迭代查找 k 条不汇聚的路径
-	theta := 0.1 // 惩罚系数
-	skip := 3    // 路径跳数超过 3 的惩罚
-	finalPaths := FindKNonConvergingPaths(matrix, source, target, k, theta, skip)
 
+	finalPaths := FindKNonConvergingPaths(matrix, source, target, c.K, c.Theta, c.Skip)
 	fmt.Println("\nFinal K Non-Converging Paths:")
 	for i, path := range finalPaths {
 		fmt.Printf("Path %d: %v, Cost: %v\n", i+1, path[0], path[1])

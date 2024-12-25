@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"Cobalt/config"
 	"Cobalt/dao"
 	"Cobalt/models"
 	"Cobalt/pool"
@@ -22,8 +23,10 @@ var (
 
 // 生成探测任务
 func GenerateTasks() {
+	//调用配置文件引出参数
+	c := config.UseToml()
 	// 初始化协程池
-	pool.InitPool(10, func(task interface{}) {
+	pool.InitPool(c.PoolNum, func(task interface{}) {
 		t := task.(system_struct.Task)
 		printTask(t)
 	})
@@ -55,53 +58,52 @@ func GenerateTasks() {
 		if len(ipAddresses) < 2 {
 			log.Println("Not enough IP addresses to generate probing tasks.")
 			return
-		} else {
-			// 立即发送一次探测任务
-			sendProbingTasks(ipAddresses)
-			// 定义每 30 秒下发一次探测任务的定时器/60秒检测是否有新的节点加入/每60s去redis取数据计算存到mysql
-			ticker := time.NewTicker(30 * time.Second)
-			tickerQuery := time.NewTicker(60 * time.Second)
-			tickerComputer := time.NewTicker(60 * time.Second)
-			defer ticker.Stop()
-			defer tickerQuery.Stop()
-			defer tickerComputer.Stop()
-			// 使用通道监听定时器的触发事件
-			for {
-				select {
-				case <-ticker.C:
-					//case1：周期下发探测任务
-					sendProbingTasks(ipAddresses)
-					fmt.Println("探测任务下发：---》", ipAddresses)
-				case <-tickerQuery.C:
-					//****
-					//case2：定时查询数据库，是否更新ip
-					var newIpAddresses []string
-					newRows, err := models.QueryDeviceName(db)
+		}
+		// 立即发送一次探测任务
+		sendProbingTasks(ipAddresses)
+		// 定义每 30 秒下发一次探测任务的定时器/60秒检测是否有新的节点加入/每60s去redis取数据计算存到mysql
+		ticker := time.NewTicker(c.DetectCycle * time.Second)
+		tickerQuery := time.NewTicker(c.DetectNewNode * time.Second)
+		tickerComputer := time.NewTicker(c.CalculateCycle * time.Second)
+		defer ticker.Stop()
+		defer tickerQuery.Stop()
+		defer tickerComputer.Stop()
+		// 使用通道监听定时器的触发事件
+		for {
+			select {
+			case <-ticker.C:
+				//case1：周期下发探测任务
+				sendProbingTasks(ipAddresses)
+				fmt.Println("探测任务下发：---》", ipAddresses)
+			case <-tickerQuery.C:
+				//****
+				//case2：定时查询数据库，是否更新ip
+				var newIpAddresses []string
+				newRows, err := models.QueryDeviceName(db)
+				if err != nil {
+					fmt.Println("Error rows", err)
+				}
+				for newRows.Next() {
+					if err := newRows.Scan(&ips); err != nil {
+						fmt.Println("Error scanning row:", err)
+						return
+					}
+					res, err := models.GetIpByDevice(db)
 					if err != nil {
-						fmt.Println("Error rows", err)
+						newIpAddresses = append(newIpAddresses, res[ips])
 					}
-					for newRows.Next() {
-						if err := newRows.Scan(&ips); err != nil {
-							fmt.Println("Error scanning row:", err)
-							return
-						}
-						res, err := models.GetIpByDevice(db)
-						if err != nil {
-							newIpAddresses = append(newIpAddresses, res[ips])
-						}
-					}
-					fmt.Println("定时器查询：", newIpAddresses)
-					if len(newIpAddresses) != len(ipAddresses) {
-						ipAddresses = append([]string(nil), newIpAddresses...) // 不一样则把新的切片赋值到ipaddress
-					}
-					fmt.Println("copy：", ipAddresses, newIpAddresses)
-				case <-tickerComputer.C:
-					//定时拿到数据并计算存到mysql里面去
-					for i := 0; i < len(ipAddresses); i++ {
-						for j := 0; j < len(ipAddresses); j++ {
-							if i != j {
-								models.RetrieveAndProcessData(conn, db, ipAddresses[i], ipAddresses[j])
-							}
+				}
+				fmt.Println("定时器查询：", newIpAddresses)
+				if len(newIpAddresses) != len(ipAddresses) {
+					ipAddresses = append([]string(nil), newIpAddresses...) // 不一样则把新的切片赋值到ipaddress
+				}
+				fmt.Println("copy：", ipAddresses, newIpAddresses)
+			case <-tickerComputer.C:
+				//定时拿到数据并计算存到mysql里面去
+				for i := 0; i < len(ipAddresses); i++ {
+					for j := 0; j < len(ipAddresses); j++ {
+						if i != j {
+							models.RetrieveAndProcessData(conn, db, ipAddresses[i], ipAddresses[j])
 						}
 					}
 				}
