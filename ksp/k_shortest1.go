@@ -60,11 +60,9 @@ func KShortestPaths1(matrix [][]int, source, target, k int, theta float64, skip 
 				// 路径跳数超过 3 时，应用惩罚
 				penalizedCost += (float64(len(current.Route)-skip) * theta) * current.Cost
 			}
-
 			// 将路径和惩罚后的权重加入结果集
 			//if !isPathConverged(current.Route, shortestPaths) {
 			shortestPaths = append(shortestPaths, [2]interface{}{current.Route, penalizedCost})
-
 			//}
 			continue
 		}
