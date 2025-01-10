@@ -44,7 +44,6 @@ func (s *SystemParams) Normalize(node *NodeState, net *NetState) (float64, float
 	isAboveThresholdCpuMean := func(x float64) bool {
 		return x > s.thresholdCpuMean
 	}(node.cpuMean)
-
 	if isAboveThresholdCpuMean {
 		// 计算当前超过阈值的节点排序位置
 		rank := 1

@@ -1,4 +1,4 @@
-package getInfo
+package getInfo_control
 
 import (
 	"Cobalt/dao"

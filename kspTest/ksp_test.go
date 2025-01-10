@@ -172,9 +172,11 @@ func TestPrintKShortestPaths2(t *testing.T) {
 		5、再次计算最短路径，最大流、最小割，并继续处理剩余的路径，直到找到k条的不重复路径。
 	*/
 	/*
-		1、allpath是按照latency从小到大排序的
-		2、多次迭代过程之中，如果迭代过后有其他path比allpath中的更优，那么需要插入新的path，同时
-		3、
+		之前逻辑保持不变，在allpath继续添加如下三条逻辑
+			1、allpath是按照latency从小到大排序的 √
+			2、多次迭代过程之中，如果迭代过后有其他path比allpath中的更优，那么需要插入新的path，×
+			2、根据ksp特性，最开始算出的k条路径具有最小延迟，只需要和allpaths最后一条路径比较
+			3、迭代完之后去allpath中的前k跳路径输出
 	*/
 	net := Network{
 		Nodes: []Node{{}, {}, {}, {}, {}, {}}, // 6 nodes
@@ -204,7 +206,8 @@ func TestPrintKShortestPaths2(t *testing.T) {
 
 	// 计算最大流
 	source, sink := 0, 5
-	for len(allPaths) < k && iterations < 3 {
+	//len(allPaths) < k &&
+	for iterations < 3 {
 		fmt.Println("K Shortest Paths:")
 		for i, p := range paths {
 			fmt.Printf("Path %d: Nodes: %v, Latency: %d\n", i+1, p.Nodes, p.Latency)
@@ -261,6 +264,9 @@ func TestPrintKShortestPaths2(t *testing.T) {
 			}
 			fmt.Printf("Path %d: Nodes: %v, Latency: %d\n", i+1, p.Nodes, p.Latency)
 		}
+
+		// 排序 allPaths
+		sortPathsByLatency(allPaths)
 		fmt.Println("allPaths (no duplicates):")
 		for i, p := range allPaths {
 			fmt.Printf("Path %d: Nodes: %v, Latency: %d\n", i+1, p.Nodes, p.Latency)

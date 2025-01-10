@@ -204,3 +204,57 @@ func GetCpuAvgAndVariance(db *sql.DB, thresholdCpuMean float64, thresholdCpuVar 
 
 	return aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars, nil
 }
+
+func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
+	// SQL 查询语句
+	query := `
+		SELECT 
+			ip_list.device_name,
+			GROUP_CONCAT(DISTINCT ip_list.ip_address ORDER BY ip_list.ip_address ASC SEPARATOR ',') AS ips,
+			di.cpu_cores,
+			di.cpu_model_name,
+			di.cpu_mhz,
+			di.memory_total,
+			di.memory_used,
+			di.memory_used_percent
+		FROM 
+			ip_list
+		JOIN 
+			device_info di
+		ON 
+			ip_list.device_name = di.device_name
+		WHERE 
+			di.created_at = (
+				SELECT 
+					MAX(created_at)
+				FROM 
+					device_info
+				WHERE 
+					device_info.device_name = di.device_name
+			)
+		GROUP BY 
+    		ip_list.device_name, di.cpu_cores, di.cpu_model_name, di.cpu_mhz, di.memory_total, di.memory_used, di.memory_used_percent;
+			`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %v", err)
+	}
+	defer rows.Close()
+
+	var devices []system_struct.DeviceUseInfo
+	for rows.Next() {
+		var device system_struct.DeviceUseInfo
+		err := rows.Scan(&device.DeviceName, &device.IPs, &device.CPUCores, &device.CPUModelName, &device.CPUMHz, &device.MemoryTotal, &device.MemoryUsed, &device.MemoryUsedPercent)
+		if err != nil {
+			return nil, fmt.Errorf("row scan failed: %v", err)
+		}
+		devices = append(devices, device)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %v", err)
+	}
+
+	return devices, nil
+}

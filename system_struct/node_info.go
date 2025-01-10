@@ -75,3 +75,15 @@ type NetState struct {
 	AboveThresholdCpuVars  []float64 // 所有超过阈值节点CPU方差，升序排序
 	BelowThresholdCpuVars  []float64 // 所有未超过阈值节点CPU方差，升序排序
 }
+
+// DeviceIP 结构体表示查询结果
+type DeviceUseInfo struct {
+	DeviceName        string  // 对应 device_name
+	IPs               string  // 对应 ips
+	CPUCores          int     // 对应 cpu_cores
+	CPUModelName      string  // 对应 cpu_model_name
+	CPUMHz            float64 // 对应 cpu_mhz
+	MemoryTotal       int64   // 对应 memory_total
+	MemoryUsed        int64   // 对应 memory_used
+	MemoryUsedPercent float64 // 对应 memory_used_percent
+}

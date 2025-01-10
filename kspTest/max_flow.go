@@ -3,6 +3,7 @@ package kspTest
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // 创建一个新的图
@@ -230,4 +231,11 @@ func equalPaths(path1, path2 Path) bool {
 		}
 	}
 	return true
+}
+
+// 按延迟排序路径
+func sortPathsByLatency(paths []Path) {
+	sort.Slice(paths, func(i, j int) bool {
+		return paths[i].Latency < paths[j].Latency
+	})
 }
