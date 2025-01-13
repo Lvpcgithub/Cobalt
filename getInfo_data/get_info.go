@@ -56,7 +56,3 @@ func ProcessDeviceData(devices []system_struct.DeviceUseInfo) {
 		fmt.Println("-----------------------------")
 	}
 }
-
-func main() {
-
-}

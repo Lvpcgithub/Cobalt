@@ -68,14 +68,6 @@ type CPUStats struct {
 	Variance   float64 `json:"variance"`    // CPU 使用率的方差
 }
 
-// 定义网络拓扑状态结构
-type NetState struct {
-	AboveThresholdCpuMeans []float64 // 所有超过阈值节点CPU均值，升序排序
-	BelowThresholdCpuMeans []float64 // 所有未超过阈值节点CPU均值，升序排序
-	AboveThresholdCpuVars  []float64 // 所有超过阈值节点CPU方差，升序排序
-	BelowThresholdCpuVars  []float64 // 所有未超过阈值节点CPU方差，升序排序
-}
-
 // DeviceIP 结构体表示查询结果
 type DeviceUseInfo struct {
 	DeviceName        string  // 对应 device_name
@@ -86,4 +78,16 @@ type DeviceUseInfo struct {
 	MemoryTotal       int64   // 对应 memory_total
 	MemoryUsed        int64   // 对应 memory_used
 	MemoryUsedPercent float64 // 对应 memory_used_percent
+}
+type TopologyMatrix struct {
+	Nodes []string        `json:"nodes"`
+	Links map[string]Link `json:"links"` // 使用 map 存储链接
+}
+
+type Link struct {
+	DeviceN1   string  `json:"device_n1"`
+	DeviceN2   string  `json:"device_n2"`
+	Source     string  `json:"ip1"`
+	Target     string  `json:"ip2"`
+	FinalValue float64 `json:"final_value"`
 }

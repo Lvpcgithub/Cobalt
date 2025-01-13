@@ -19,7 +19,7 @@ var (
 	updateError error        // 保存最近一次更新的错误信息
 )
 
-func DeviceInfo() {
+func DeviceInfo() *gin.Engine {
 	// 创建 Gin 路由
 	r := gin.Default()
 	db := dao.ConnectToDB()
@@ -49,10 +49,7 @@ func DeviceInfo() {
 		})
 	})
 
-	// 启动服务器
-	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("failed to run server: %v", err)
-	}
+	return r
 }
 
 // 查询并更新全局设备信息的方法
@@ -85,4 +82,19 @@ func updateDeviceData(db *sql.DB) {
 	for range ticker.C {
 		queryAndUpdateDeviceData(db) // 提交任务到协程池
 	}
+}
+
+// 开放topology信息
+func TopologyInfo() *gin.Engine {
+	r := gin.Default()
+
+	r.GET("/topology", func(c *gin.Context) {
+		models.Mu.Lock()
+		defer models.Mu.Unlock()
+
+		// 返回 topology 数据
+		c.JSON(200, models.Topology)
+	})
+
+	return r
 }

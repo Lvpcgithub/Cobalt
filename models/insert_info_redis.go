@@ -2,11 +2,13 @@ package models
 
 import (
 	"Cobalt/system_struct"
+	"Cobalt/topology_caculate"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"log"
+	"sync"
 )
 
 // 接受转化的数据，存储到redis
@@ -26,6 +28,15 @@ func CollectAndStoreData(conn redis.Conn, probeResult system_struct.ProbeResult)
 }
 
 // RetrieveAndProcessData 从Redis中取出数据并进行计算 ****60s
+// 为李雅普诺夫公式提供数据
+var (
+	Topology = system_struct.TopologyMatrix{
+		Nodes: []string{},
+		Links: make(map[string]system_struct.Link), // 初始化 map
+	}
+	Mu sync.Mutex // 用于并发安全
+)
+
 func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string) {
 	device_name1, err := GetDeviceNameByIP(db, ip1)
 	device_name2, err := GetDeviceNameByIP(db, ip2)
@@ -50,20 +61,72 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 			continue
 		}
 		totalDelay += probeResult.Delay
-		//fmt.Println("计算数据,例如延迟：", probeResult.Delay)
 	}
 	avgDelay := totalDelay / float64(len(values)) //除数是否是0
-	//fmt.Println(avgDelay)
 	stat, err := GetLatestCPUUsage(db, device_name2)
 	if err != nil {
 		log.Printf("Failed to get latest CPU usage for %s->%s: %v", ip1, ip2, err)
 		return
 	}
-	StoreToMySQL(db, device_name1, device_name2, avgDelay, stat.Mean, stat.Variance)
+	aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars, err := GetCpuAvgAndVariance(db, 50, 50)
+	if err != nil {
+		return
+	}
+	net := system_struct.NetState{
+		AboveThresholdCpuMeans: aboveCpuMeans,
+		AboveThresholdCpuVars:  aboveCpuVars,
+		BelowThresholdCpuMeans: belowCpuMeans,
+		BelowThresholdCpuVars:  belowCpuVars,
+	}
+	node := system_struct.NodeState{
+		CpuMean: stat.Mean,
+		CpuVar:  stat.Variance,
+	}
+	//参数设置
+	params := topology_caculate.SystemParams{
+		ThresholdCpuMean: 50,
+		ThresholdCpuVar:  50,
+		Weight:           2,
+	}
+	//归一化数据计算
+	normalCpuMean, normalCpuVar := params.Normalize(&node, &net)
+	QMean, QVar, err := QueryVirtualQueueCPUByDeviceName(db, device_name2)
+	if err != nil {
+		log.Printf("Failed to query virtual CPU %v", err)
+	}
+
+	e := topology_caculate.Evaluate{
+		Delay:         avgDelay,
+		NormalCpuMean: normalCpuMean,
+		NormalCpuVar:  normalCpuVar,
+		QMean:         QMean,
+		QVar:          QVar,
+		Params:        params,
+		State:         net,
+	}
+	VirtualQueueCPUMean := e.UpdateQMean()
+	VirtualQueueCPUVariance := e.UpdateQVar()
+	finalValue := e.DriftPlusPenalty()
+	fmt.Println("finalValue:", finalValue)
+	StoreToMySQL(db, device_name1, device_name2, avgDelay, stat.Mean, stat.Variance, VirtualQueueCPUMean, VirtualQueueCPUVariance)
+	// 将结果加入到拓扑矩阵中
+	Mu.Lock()
+	k := fmt.Sprintf("%s:%s", ip1, ip2) // 构建键，例如 "192.168.1.1:192.168.1.2"
+
+	// 插入或覆盖链接
+	Topology.Links[k] = system_struct.Link{
+		DeviceN1:   device_name1,
+		DeviceN2:   device_name2,
+		Source:     ip1,
+		Target:     ip2,
+		FinalValue: finalValue,
+	}
+	Mu.Unlock()
+
 }
 
 // 数据计算接收并存储到mysql
-func StoreToMySQL(db *sql.DB, n1, n2 string, latency, mean, variance float64) {
+func StoreToMySQL(db *sql.DB, n1, n2 string, latency, mean, variance, VirtualQueueCPUMean, VirtualQueueCPUVariance float64) {
 	// 创建 Link 结构体实例，准备插入的数据
 	link := system_struct.Links{
 		DeviceN1:                n1,
@@ -71,8 +134,8 @@ func StoreToMySQL(db *sql.DB, n1, n2 string, latency, mean, variance float64) {
 		LinkLatency:             latency,
 		N2CPUMean:               mean,
 		N2CPUVariance:           variance,
-		VirtualQueueCPUMean:     0, // 假设均值作为虚拟队列的 CPU 均值
-		VirtualQueueCPUVariance: 0, // 假设方差作为虚拟队列的 CPU 方差
+		VirtualQueueCPUMean:     VirtualQueueCPUMean,     // 假设均值作为虚拟队列的 CPU 均值
+		VirtualQueueCPUVariance: VirtualQueueCPUVariance, // 假设方差作为虚拟队列的 CPU 方差
 	}
 	// 调用 InsertLink 插入数据
 	err := InsertLinks(db, link)

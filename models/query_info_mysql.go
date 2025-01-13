@@ -205,6 +205,7 @@ func GetCpuAvgAndVariance(db *sql.DB, thresholdCpuMean float64, thresholdCpuVar 
 	return aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars, nil
 }
 
+// 查询cpu和内存
 func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
 	// SQL 查询语句
 	query := `
@@ -257,4 +258,36 @@ func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
 	}
 
 	return devices, nil
+}
+
+// QueryVirtualQueueCPUByDeviceName 查询虚拟队列 CPU 的均值和方差
+func QueryVirtualQueueCPUByDeviceName(db *sql.DB, deviceName string) (float64, float64, error) {
+	// SQL 查询语句
+	query := `
+		SELECT 
+			virtual_queue_cpu_mean,
+			virtual_queue_cpu_variance
+		FROM 
+			links
+		WHERE 
+			device_n1 = ?;
+	`
+
+	// 定义变量存储查询结果
+	var virtualQueueCPUMean float64
+	var virtualQueueCPUVariance float64
+
+	// 执行查询并解析结果
+	err := db.QueryRow(query, deviceName).Scan(&virtualQueueCPUMean, &virtualQueueCPUVariance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 如果查询没有结果，返回一个特殊错误
+			return 0, 0, fmt.Errorf("no records found for device name: %s", deviceName)
+		}
+		// 处理其他数据库错误
+		return 0, 0, fmt.Errorf("error querying database: %w", err)
+	}
+
+	// 返回结果
+	return virtualQueueCPUMean, virtualQueueCPUVariance, nil
 }
