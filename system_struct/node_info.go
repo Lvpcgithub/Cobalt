@@ -75,6 +75,7 @@ type DeviceUseInfo struct {
 	CPUCores          int     // 对应 cpu_cores
 	CPUModelName      string  // 对应 cpu_model_name
 	CPUMHz            float64 // 对应 cpu_mhz
+	CPUUsage          float64 // 对应 cpu_usage
 	MemoryTotal       int64   // 对应 memory_total
 	MemoryUsed        int64   // 对应 memory_used
 	MemoryUsedPercent float64 // 对应 memory_used_percent
@@ -90,4 +91,10 @@ type Link struct {
 	Source     string  `json:"ip1"`
 	Target     string  `json:"ip2"`
 	FinalValue float64 `json:"final_value"`
+}
+
+// NodeCapacity 节点能力
+type NodeCapacity struct {
+	MaxTraffic          int
+	ConnectionsPerCycle int
 }

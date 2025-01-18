@@ -23,7 +23,7 @@ func DeviceInfo() *gin.Engine {
 	// 创建 Gin 路由
 	r := gin.Default()
 	db := dao.ConnectToDB()
-	defer db.Close()
+	//defer db.Close()
 	// **程序启动时立即查询一次设备信息**
 	queryAndUpdateDeviceData(db)
 
@@ -82,19 +82,4 @@ func updateDeviceData(db *sql.DB) {
 	for range ticker.C {
 		queryAndUpdateDeviceData(db) // 提交任务到协程池
 	}
-}
-
-// 开放topology信息
-func TopologyInfo() *gin.Engine {
-	r := gin.Default()
-
-	r.GET("/topology", func(c *gin.Context) {
-		models.Mu.Lock()
-		defer models.Mu.Unlock()
-
-		// 返回 topology 数据
-		c.JSON(200, models.Topology)
-	})
-
-	return r
 }

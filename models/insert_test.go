@@ -23,7 +23,7 @@ func TestQueryDeviceIPs(t *testing.T) {
 
 	fmt.Println("Device Information:")
 	for _, device := range devices {
-		fmt.Printf("Device: %s, IPs: %s, Cores: %d, CPU: %s,MHZ: %f, Memory Total: %d, Memory Used: %d, Memory Used Percent: %.2f%%\n",
-			device.DeviceName, device.IPs, device.CPUCores, device.CPUModelName, device.CPUMHz, device.MemoryTotal, device.MemoryUsed, device.MemoryUsedPercent)
+		fmt.Printf("Device: %s, IPs: %s, Cores: %d, CPU: %s,MHZ: %f,Usage: %f, Memory Total: %d, Memory Used: %d, Memory Used Percent: %.2f%%\n",
+			device.DeviceName, device.IPs, device.CPUCores, device.CPUModelName, device.CPUMHz, device.CPUUsage, device.MemoryTotal, device.MemoryUsed, device.MemoryUsedPercent)
 	}
 }

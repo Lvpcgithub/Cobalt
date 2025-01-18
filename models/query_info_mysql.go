@@ -215,6 +215,7 @@ func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
 			di.cpu_cores,
 			di.cpu_model_name,
 			di.cpu_mhz,
+			di.cpu_usage,
 			di.memory_total,
 			di.memory_used,
 			di.memory_used_percent
@@ -234,7 +235,7 @@ func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
 					device_info.device_name = di.device_name
 			)
 		GROUP BY 
-    		ip_list.device_name, di.cpu_cores, di.cpu_model_name, di.cpu_mhz, di.memory_total, di.memory_used, di.memory_used_percent;
+    		ip_list.device_name, di.cpu_cores, di.cpu_model_name, di.cpu_mhz,di.cpu_usage, di.memory_total, di.memory_used, di.memory_used_percent;
 			`
 
 	rows, err := db.Query(query)
@@ -246,7 +247,7 @@ func QueryDeviceIPs(db *sql.DB) ([]system_struct.DeviceUseInfo, error) {
 	var devices []system_struct.DeviceUseInfo
 	for rows.Next() {
 		var device system_struct.DeviceUseInfo
-		err := rows.Scan(&device.DeviceName, &device.IPs, &device.CPUCores, &device.CPUModelName, &device.CPUMHz, &device.MemoryTotal, &device.MemoryUsed, &device.MemoryUsedPercent)
+		err := rows.Scan(&device.DeviceName, &device.IPs, &device.CPUCores, &device.CPUModelName, &device.CPUMHz, &device.CPUUsage, &device.MemoryTotal, &device.MemoryUsed, &device.MemoryUsedPercent)
 		if err != nil {
 			return nil, fmt.Errorf("row scan failed: %v", err)
 		}
@@ -290,4 +291,32 @@ func QueryVirtualQueueCPUByDeviceName(db *sql.DB, deviceName string) (float64, f
 
 	// 返回结果
 	return virtualQueueCPUMean, virtualQueueCPUVariance, nil
+}
+
+// GetCapacityByCpuAndMemory 查询给定 CPU 和内存使用率的最大流量和连接数
+func GetCapacityByCpuAndMemory(db *sql.DB, cpuUsage, memoryUsage float64) (*system_struct.NodeCapacity, error) {
+	// 执行查询，直接在 SQL 中使用 ROUND() 来四舍五入
+	query := `
+		SELECT max_traffic, connections_per_cycle
+		FROM node_capacity
+		WHERE ROUND(cpu_usage, -1) = ROUND(?, -1)
+		AND ROUND(memory_usage, -1) = ROUND(?, -1)
+		LIMIT 1;
+	`
+	row := db.QueryRow(query, cpuUsage, memoryUsage)
+
+	// 解析查询结果
+	var capacity system_struct.NodeCapacity
+	err := row.Scan(&capacity.MaxTraffic, &capacity.ConnectionsPerCycle)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 如果没有找到匹配的数据，返回 nil 和 nil
+			return nil, nil
+		}
+		// 其他错误
+		return nil, err
+	}
+
+	// 返回查询结果
+	return &capacity, nil
 }

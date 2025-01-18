@@ -12,9 +12,3 @@ func TestDeviceInfo(t *testing.T) {
 		log.Fatalf("failed to run server: %v", err)
 	}
 }
-func TestTopologyInfo(t *testing.T) {
-	r := TopologyInfo()
-	if err := r.Run(":8081"); err != nil {
-		log.Fatalf("failed to run server: %v", err)
-	}
-}

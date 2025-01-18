@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"sync"
@@ -62,7 +63,12 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 		}
 		totalDelay += probeResult.Delay
 	}
-	avgDelay := totalDelay / float64(len(values)) //除数是否是0
+	if len(values) == 0 { //除数是否是0
+		// 记录日志
+		log.Println("Error: values slice is empty, cannot divide by zero.")
+		return
+	}
+	avgDelay := totalDelay / float64(len(values))
 	stat, err := GetLatestCPUUsage(db, device_name2)
 	if err != nil {
 		log.Printf("Failed to get latest CPU usage for %s->%s: %v", ip1, ip2, err)
@@ -110,8 +116,10 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 	fmt.Println("finalValue:", finalValue)
 	StoreToMySQL(db, device_name1, device_name2, avgDelay, stat.Mean, stat.Variance, VirtualQueueCPUMean, VirtualQueueCPUVariance)
 	// 将结果加入到拓扑矩阵中
+
+	// 使用锁确保数据安全
 	Mu.Lock()
-	k := fmt.Sprintf("%s:%s", ip1, ip2) // 构建键，例如 "192.168.1.1:192.168.1.2"
+	k := fmt.Sprintf("%s:%s", ip1, ip2)
 
 	// 插入或覆盖链接
 	Topology.Links[k] = system_struct.Link{
@@ -121,8 +129,31 @@ func RetrieveAndProcessData(conn redis.Conn, db *sql.DB, ip1 string, ip2 string)
 		Target:     ip2,
 		FinalValue: finalValue,
 	}
+	// 每次更新后都保存到文件
+	err = SaveTopologyToFile()
+	if err != nil {
+		log.Printf("Error saving topology to file: %v", err)
+	}
 	Mu.Unlock()
 
+}
+func TopologyInfo() *gin.Engine {
+	r := gin.Default()
+
+	r.GET("/topology", func(c *gin.Context) {
+		// 从文件中加载 Topology 数据
+		topology, err := LoadTopologyFromFile()
+		if err != nil {
+			// 如果加载失败，返回错误信息
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+
+		// 返回 Topology 数据
+		c.JSON(200, topology)
+	})
+
+	return r
 }
 
 // 数据计算接收并存储到mysql

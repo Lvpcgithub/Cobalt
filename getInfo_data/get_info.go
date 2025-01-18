@@ -1,10 +1,13 @@
 package getInfo_data
 
 import (
+	"Cobalt/models"
 	"Cobalt/system_struct"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -42,17 +45,34 @@ func FetchDeviceData(url string) (*Response, error) {
 	return &response, nil
 }
 
-// processDeviceData 处理设备数据
-func ProcessDeviceData(devices []system_struct.DeviceUseInfo) {
+// ProcessDeviceData 处理设备数据
+func ProcessDeviceData(db *sql.DB, devices []system_struct.DeviceUseInfo) {
 	for _, device := range devices {
+		// 查询设备对应的最大流量和连接数
+		nodeCapacity, err := models.GetCapacityByCpuAndMemory(db, device.CPUUsage, device.MemoryUsedPercent)
+		if err != nil {
+			log.Printf("Error fetching capacity for device %s: %v\n", device.DeviceName, err)
+			continue // 跳过当前设备
+		}
+
+		// 如果未找到对应的容量数据
+		if nodeCapacity == nil {
+			log.Printf("No capacity data found for device %s\n", device.DeviceName)
+			continue
+		}
+
+		// 打印设备信息
 		fmt.Printf("Device Name: %s\n", device.DeviceName)
 		fmt.Printf("IPs: %s\n", device.IPs)
 		fmt.Printf("CPU Cores: %d\n", device.CPUCores)
 		fmt.Printf("CPU Model Name: %s\n", device.CPUModelName)
 		fmt.Printf("CPU MHz: %.2f\n", device.CPUMHz)
+		fmt.Printf("CPU Usage: %.2f\n", device.CPUUsage)
 		fmt.Printf("Memory Total: %d\n", device.MemoryTotal)
 		fmt.Printf("Memory Used: %d\n", device.MemoryUsed)
 		fmt.Printf("Memory Used Percent: %.2f%%\n", device.MemoryUsedPercent)
+		fmt.Printf("Max Flow: %d\n", nodeCapacity.MaxTraffic)
+		fmt.Printf("ConnectionsPerCycle: %d\n", nodeCapacity.ConnectionsPerCycle)
 		fmt.Println("-----------------------------")
 	}
 }
