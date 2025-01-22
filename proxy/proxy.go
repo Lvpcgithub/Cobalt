@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"github.com/BurntSushi/toml"
 	"github.com/xtaci/smux"
 	"io"
 	"log"
@@ -154,21 +153,6 @@ func createConnectionFactory(addr string) connection.Factory {
 	return func() (net.Conn, error) {
 		return net.Dial("tcp", addr)
 	}
-}
-
-func main() {
-	var cfg Config
-	if _, err := toml.DecodeFile("config.toml", &cfg); err != nil {
-		log.Fatalf("Failed to parse config file: %v", err)
-	}
-
-	proxy1Config := cfg.Proxy1
-	proxy2Config := cfg.Proxy2
-	proxy3Config := cfg.Proxy3
-
-	go startHttpProxy(proxy1Config)
-	go startTcpProxy(proxy2Config)
-	startTcpProxy(proxy3Config)
 }
 
 // 处理客户端http请求
