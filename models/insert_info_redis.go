@@ -25,7 +25,6 @@ func CollectAndStoreData(conn redis.Conn, probeResult system_struct.ProbeResult)
 	if err != nil {
 		log.Fatalf("Failed to store system info in Redis: %v", err)
 	}
-	//log.Printf("Stored data for %s->%s at %s", probeResult.SourceIP, probeResult.Delay, probeResult.Timestamp)
 }
 
 // RetrieveAndProcessData 从Redis中取出数据并进行计算 ****60s

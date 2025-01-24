@@ -138,6 +138,7 @@ func GetDeviceNameByIP(db *sql.DB, ipAddress string) (string, error) {
 	return deviceName, nil
 }
 
+// 获取节点cpu评级列表
 func GetCpuAvgAndVariance(db *sql.DB, thresholdCpuMean float64, thresholdCpuVar float64) (aboveCpuMeans, belowCpuMeans, aboveCpuVars, belowCpuVars []float64, err error) {
 	// 查询数据库，获取每个设备的最近 10 条记录的 CPU 使用率均值和方差
 	query := `
